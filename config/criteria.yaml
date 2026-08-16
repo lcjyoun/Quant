@@ -1,0 +1,27 @@
+# 2026-08-16 확정 스크리닝 기준값
+# 1차 필터: 재무지표 / 2차 필터(타이밍): 기술적 지표
+
+fundamental:
+  # PER이 업종 평균 대비 20% 이상 저평가 (per <= industry_per * (1 - discount))
+  per_industry_discount: 0.20
+  # PBR 1.5배 이하
+  pbr_max: 1.5
+  # ROE 10% 이상
+  roe_min: 10.0
+  # 부채비율 100% 이하
+  debt_ratio_max: 100.0
+  # 시가총액 2000억원 이상
+  market_cap_min: 200_000_000_000
+
+technical:
+  # 골든크로스 (단기 이평선이 장기 이평선을 상향 돌파)
+  short_ma_window: 5
+  long_ma_window: 20
+  golden_cross_lookback_days: 3
+  # RSI 40~60 구간 (과매수/과매도 아닌 중립 구간에서의 진입)
+  rsi_period: 14
+  rsi_min: 40.0
+  rsi_max: 60.0
+  # 거래량 급증: 최근 20일 평균 대비 150% 이상
+  volume_avg_window: 20
+  volume_surge_ratio: 1.5

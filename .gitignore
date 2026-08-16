@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.kis_token_cache.json
+token_cache.json
+output/
+*.csv
+!config/universe.csv
