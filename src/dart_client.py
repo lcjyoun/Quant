@@ -149,14 +149,25 @@ class DartClient:
         return data.get("list", [])
 
     @staticmethod
-    def _find_amount(items: list[dict], account_name: str) -> float:
+    def _find_amount(items: list[dict], account_name: str, sj_div: str | None = None) -> float:
+        """계정과목 이름으로 당기 금액(thstrm_amount)을 찾는다.
+
+        같은 계정명이 재무제표 종류(sj_div: BS=재무상태표, IS=손익계산서,
+        CIS=포괄손익계산서, CF=현금흐름표, SCE=자본변동표)마다 중복으로
+        나올 수 있어(예: "자본총계"는 BS에도, SCE에도 나온다), 어느
+        표에서 가져올지 sj_div로 지정할 수 있게 했다.
+        """
+
         for item in items:
-            if item.get("account_nm") == account_name:
-                raw = (item.get("thstrm_amt") or "0").replace(",", "")
-                try:
-                    return float(raw)
-                except ValueError:
-                    return 0.0
+            if item.get("account_nm") != account_name:
+                continue
+            if sj_div is not None and item.get("sj_div") != sj_div:
+                continue
+            raw = (item.get("thstrm_amount") or "0").replace(",", "")
+            try:
+                return float(raw)
+            except ValueError:
+                return 0.0
         return 0.0
 
     def get_roe_and_debt_ratio(
@@ -165,9 +176,9 @@ class DartClient:
         """연간 사업보고서 기준 ROE(%), 부채비율(%)을 계산한다."""
 
         items = self.get_financial_statement(corp_code, year, report_code)
-        equity = self._find_amount(items, "자본총계")
-        liabilities = self._find_amount(items, "부채총계")
-        net_income = self._find_amount(items, "당기순이익")
+        equity = self._find_amount(items, "자본총계", sj_div="BS")
+        liabilities = self._find_amount(items, "부채총계", sj_div="BS")
+        net_income = self._find_amount(items, "당기순이익(손실)", sj_div="IS")
 
         roe = (net_income / equity * 100) if equity else 0.0
         debt_ratio = (liabilities / equity * 100) if equity else 0.0
@@ -181,10 +192,10 @@ class DartClient:
         q3_cum_items = self.get_financial_statement(corp_code, year, REPORT_CODE_Q3)
         annual_items = self.get_financial_statement(corp_code, year, REPORT_CODE_ANNUAL)
 
-        q1 = self._find_amount(q1_items, "영업이익")
-        h1_cum = self._find_amount(h1_items, "영업이익")
-        q3_cum = self._find_amount(q3_cum_items, "영업이익")
-        annual_cum = self._find_amount(annual_items, "영업이익")
+        q1 = self._find_amount(q1_items, "영업이익", sj_div="IS")
+        h1_cum = self._find_amount(h1_items, "영업이익", sj_div="IS")
+        q3_cum = self._find_amount(q3_cum_items, "영업이익", sj_div="IS")
+        annual_cum = self._find_amount(annual_items, "영업이익", sj_div="IS")
 
         return {
             "Q1": q1,
