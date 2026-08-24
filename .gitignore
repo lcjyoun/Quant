@@ -8,6 +8,7 @@ venv/
 .pytest_cache/
 .kis_token_cache.json
 token_cache.json
+corp_code_cache.json
 output/
 *.csv
 !config/universe.csv

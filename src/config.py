@@ -63,6 +63,13 @@ class KISSettings:
         )
 
 
+def get_dart_api_key(dotenv_path: str | None = None) -> str:
+    """DART OpenAPI 키를 .env에서 읽는다."""
+
+    load_dotenv(dotenv_path=dotenv_path)
+    return os.environ.get("DART_API_KEY", "")
+
+
 @dataclass(frozen=True)
 class FundamentalCriteria:
     """1차 필터: 재무지표 기준값."""
