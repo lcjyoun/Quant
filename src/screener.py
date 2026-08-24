@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.config import Criteria, FundamentalCriteria
+from src.dart_client import DartAPIError, DartClient
 from src.kis_client import KISAPIError, KISClient
 from src.models import FilterOutcome, FinancialSnapshot, ScreeningResult
 from src.technical import TechnicalFilter
@@ -101,19 +102,32 @@ class FundamentalFilter:
             "passed": cap_ok,
         }
 
-        # NOTE: 영업이익 4개 분기 연속 흑자 기준(4-1절)은 아직 KIS API 응답
-        # 필드 매핑을 확인하지 못해 "확인 필요" 상태로 보류했다. 실제 계좌로
-        # 재무비율 API를 호출해 응답을 확인한 뒤 추가할 예정.
+        profit_streak_ok = snapshot.operating_profit_streak_ok
+        details["operating_profit_streak"] = {"passed": profit_streak_ok}
 
-        passed = per_ok and pbr_ok and roe_ok and debt_ok and cap_ok
+        passed = per_ok and pbr_ok and roe_ok and debt_ok and cap_ok and profit_streak_ok
         return FilterOutcome(passed=passed, details=details)
 
 
 class Screener:
-    """1차(재무) + 2차(기술) 필터를 순서대로 적용하는 전체 파이프라인."""
+    """1차(재무) + 2차(기술) 필터를 순서대로 적용하는 전체 파이프라인.
 
-    def __init__(self, client: KISClient, criteria: Criteria):
+    재무 스냅샷은 두 소스를 합쳐서 만든다:
+    - KIS(client): 현재가 기준 PER/PBR/시가총액/업종 PER
+    - DART(dart_client): ROE/부채비율/영업이익 연속흑자 (직전 완결 회계연도
+      사업보고서 + 분기보고서 기준)
+    """
+
+    def __init__(
+        self,
+        client: KISClient,
+        dart_client: DartClient,
+        criteria: Criteria,
+        fiscal_year: str,
+    ):
         self._client = client
+        self._dart_client = dart_client
+        self._fiscal_year = fiscal_year
         self._fundamental_filter = FundamentalFilter(criteria.fundamental)
         self._technical_filter = TechnicalFilter(criteria.technical)
 
@@ -123,7 +137,7 @@ class Screener:
         for entry in universe:
             try:
                 result = self._screen_one(entry)
-            except KISAPIError as exc:
+            except (KISAPIError, DartAPIError) as exc:
                 logger.warning("종목 %s(%s) 조회 실패: %s", entry.code, entry.name, exc)
                 continue
             results.append(result)
@@ -131,8 +145,26 @@ class Screener:
         return results
 
     def _screen_one(self, entry: UniverseEntry) -> ScreeningResult:
-        snapshot = self._client.get_financial_snapshot(
-            entry.code, market=entry.market, industry=entry.industry
+        price_snapshot = self._client.get_price_snapshot(entry.code, industry=entry.industry)
+
+        corp_code = self._dart_client.get_corp_code(entry.code)
+        ratios = self._dart_client.get_roe_and_debt_ratio(corp_code, self._fiscal_year)
+        profit_streak_ok = self._dart_client.has_four_consecutive_profitable_quarters(
+            corp_code, self._fiscal_year
+        )
+
+        snapshot = FinancialSnapshot(
+            code=entry.code,
+            name=price_snapshot["name"],
+            market=entry.market,
+            industry=entry.industry,
+            per=price_snapshot["per"],
+            industry_per=price_snapshot["industry_per"],
+            pbr=price_snapshot["pbr"],
+            roe=ratios["roe"],
+            debt_ratio=ratios["debt_ratio"],
+            market_cap=price_snapshot["market_cap"],
+            operating_profit_streak_ok=profit_streak_ok,
         )
         fundamental_outcome = self._fundamental_filter.evaluate(snapshot)
 

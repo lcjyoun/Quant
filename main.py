@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime
 import logging
 import sys
 from pathlib import Path
 
-from src.config import Criteria, KISSettings
+from src.config import Criteria, KISSettings, get_dart_api_key
+from src.dart_client import DartClient
 from src.kis_client import KISClient
 from src.screener import Screener, load_universe
 
@@ -39,6 +41,12 @@ def parse_args() -> argparse.Namespace:
         choices=["mock", "real"],
         default=None,
         help="KIS_ENV 환경변수를 덮어쓴다 (기본: .env의 KIS_ENV 사용)",
+    )
+    parser.add_argument(
+        "--fiscal-year",
+        default=str(datetime.date.today().year - 1),
+        help="ROE/부채비율/영업이익 조회에 쓸 회계연도 (기본: 작년, 사업보고서가 "
+        "확정 공시된 완결 연도를 쓸 것)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="상세 로그 출력")
     return parser.parse_args()
@@ -68,14 +76,26 @@ def main() -> int:
         )
         return 1
 
+    dart_api_key = get_dart_api_key()
+    if not dart_api_key:
+        logging.error(
+            "DART_API_KEY가 설정되지 않았습니다. "
+            "https://opendart.fss.or.kr 에서 발급받아 .env에 추가하세요."
+        )
+        return 1
+
     criteria = Criteria.from_yaml(args.criteria)
     universe = load_universe(args.universe)
     logging.info(
-        "유니버스 %d개 종목 로드 완료 (env=%s)", len(universe), settings.env
+        "유니버스 %d개 종목 로드 완료 (env=%s, 회계연도=%s)",
+        len(universe),
+        settings.env,
+        args.fiscal_year,
     )
 
     client = KISClient(settings)
-    screener = Screener(client, criteria)
+    dart_client = DartClient(dart_api_key)
+    screener = Screener(client, dart_client, criteria, args.fiscal_year)
     results = screener.run(universe)
 
     final_candidates = screener.final_candidates(results)

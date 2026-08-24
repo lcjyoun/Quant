@@ -24,7 +24,7 @@ import pandas as pd
 import requests
 
 from src.config import KISSettings
-from src.models import FinancialSnapshot, PriceBar
+from src.models import PriceBar
 
 # -- API 경로 및 TR_ID -------------------------------------------------
 
@@ -37,12 +37,6 @@ INQUIRE_DAILY_PRICE_PATH = (
     "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
 )
 TR_INQUIRE_DAILY_PRICE = "FHKST03010100"
-
-FINANCIAL_RATIO_PATH = "/uapi/domestic-stock/v1/finance/profit-ratio"
-TR_FINANCIAL_RATIO = "FHKST66430400"
-
-STABILITY_RATIO_PATH = "/uapi/domestic-stock/v1/finance/stability-ratio"
-TR_STABILITY_RATIO = "FHKST66430600"
 
 INDUSTRY_PRICE_PATH = "/uapi/domestic-stock/v1/quotations/inquire-index-price"
 TR_INDUSTRY_PRICE = "FHPUP02100000"
@@ -237,11 +231,12 @@ class KISClient:
         }
 
     # -- 시세/재무 조회 --------------------------------------------------
+    # ROE/부채비율/영업이익 연속흑자는 DART(src/dart_client.py)에서 가져온다.
+    # (KIS의 수익성/안정성 비율 API는 응답 필드를 검증하지 못해 뺐다 —
+    # DART는 실제 삼성전자 데이터로 검증 완료된 값을 준다.)
 
-    def get_financial_snapshot(
-        self, code: str, market: str = "KOSPI", industry: str = ""
-    ) -> FinancialSnapshot:
-        """현재가/PER/PBR/시가총액 + 수익성/안정성 비율을 합쳐 스냅샷을 만든다."""
+    def get_price_snapshot(self, code: str, industry: str = "") -> dict:
+        """현재가/PER/PBR/시가총액을 조회한다."""
 
         price = self._get(
             INQUIRE_PRICE_PATH,
@@ -249,51 +244,20 @@ class KISClient:
             params={"FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code},
         ).get("output", {})
 
-        profit = self._get(
-            FINANCIAL_RATIO_PATH,
-            TR_FINANCIAL_RATIO,
-            params={
-                "FID_DIV_CLS_CODE": "0",
-                "fid_cond_mrkt_div_code": "J",
-                "fid_input_iscd": code,
-            },
-        ).get("output", [{}])
-        profit_row = profit[0] if profit else {}
-
-        stability = self._get(
-            STABILITY_RATIO_PATH,
-            TR_STABILITY_RATIO,
-            params={
-                "fid_div_cls_code": "0",
-                "fid_cond_mrkt_div_code": "J",
-                "fid_input_iscd": code,
-            },
-        ).get("output", [{}])
-        stability_row = stability[0] if stability else {}
-
         name = price.get("hts_kor_isnm", code)
         per = _safe_float(price.get("per"))
         pbr = _safe_float(price.get("pbr"))
         # hts_avls: 시가총액(억원 단위) -> 원 단위로 환산
         market_cap = _safe_float(price.get("hts_avls")) * 100_000_000
-
-        roe = _safe_float(profit_row.get("self_cptl_ntin_inrt"))
-        debt_ratio = _safe_float(stability_row.get("lblt_rate"))
-
         industry_per = self.get_industry_per(industry) if industry else per
 
-        return FinancialSnapshot(
-            code=code,
-            name=name,
-            market=market,
-            industry=industry,
-            per=per,
-            industry_per=industry_per,
-            pbr=pbr,
-            roe=roe,
-            debt_ratio=debt_ratio,
-            market_cap=market_cap,
-        )
+        return {
+            "name": name,
+            "per": per,
+            "pbr": pbr,
+            "market_cap": market_cap,
+            "industry_per": industry_per,
+        }
 
     def get_industry_per(self, industry_code: str) -> float:
         """업종 평균 PER 조회. 업종 코드가 없으면 0을 반환한다."""

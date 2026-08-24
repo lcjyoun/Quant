@@ -24,6 +24,7 @@ class FinancialSnapshot:
     roe: float
     debt_ratio: float
     market_cap: float  # 원(KRW) 단위
+    operating_profit_streak_ok: bool  # 최근 4개 분기 영업이익 연속 흑자 여부
 
 
 @dataclass

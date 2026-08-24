@@ -23,6 +23,7 @@ def _snapshot(**overrides) -> FinancialSnapshot:
         roe=12.0,
         debt_ratio=80.0,
         market_cap=300_000_000_000,
+        operating_profit_streak_ok=True,
     )
     base.update(overrides)
     return FinancialSnapshot(**base)
@@ -69,3 +70,9 @@ def test_zero_per_treated_as_missing_data_and_fails():
     outcome = FundamentalFilter(CRITERIA).evaluate(_snapshot(per=0.0))
     assert not outcome.passed
     assert not outcome.details["per"]["passed"]
+
+
+def test_operating_profit_streak_broken_fails():
+    outcome = FundamentalFilter(CRITERIA).evaluate(_snapshot(operating_profit_streak_ok=False))
+    assert not outcome.passed
+    assert not outcome.details["operating_profit_streak"]["passed"]
