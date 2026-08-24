@@ -1,27 +1,43 @@
 """[Phase 4 준비] DART OpenAPI로 ROE/부채비율/영업이익을 받아올 수 있는지 확인.
 
-DART_API_KEY가 .env에 있어야 한다 (opendart.fss.or.kr에서 이메일로 즉시 발급).
-삼성전자(005930)의 2023년 사업보고서 기준 ROE/부채비율과, 2023년 분기별
-영업이익 흑자 여부를 조회해본다.
+DART_API_KEY가 필요하다 (opendart.fss.or.kr에서 이메일로 즉시 발급, 증권계좌
+불필요). 삼성전자(005930)의 2023년 사업보고서 기준 ROE/부채비율과, 2023년
+분기별 영업이익 흑자 여부를 조회해본다.
 
-주의: 이 리포지토리가 올라가 있는 클라우드 세션은 DART 서버로 나가는
-외부 네트워크가 막혀 있어 여기서는 실행해도 항상 실패한다. 반드시 본인
-컴퓨터(로컬)에서 실행해서 결과를 확인해달라.
+키 설정 방법 (아무거나 하나만 하면 됨):
+- 로컬: `.env` 파일에 `DART_API_KEY=발급받은키` 한 줄 추가
+- Colab: 셀에서 직접 `import os; os.environ["DART_API_KEY"] = "발급받은키"`
+  실행하거나, 왼쪽 열쇠 아이콘(보안 비밀)에 이름 `DART_API_KEY`로 저장하고
+  "노트북 액세스" 토글을 켜두면 자동으로 읽어온다.
 
-실행:
+실행 (로컬):
     python test_dart_connection.py
+
+실행 (Colab, 저장소를 클론한 뒤):
+    !python test_dart_connection.py
 """
 
 from __future__ import annotations
 
-from src.config import get_dart_api_key
-from src.dart_client import DartAPIError, DartClient
+import sys
+from pathlib import Path
+
+# Colab의 %run/작업 디렉터리가 이 파일 위치와 다를 때도 src를 찾을 수 있도록
+# 이 스크립트 자신의 폴더를 import 경로에 추가한다.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from src.config import get_dart_api_key  # noqa: E402
+from src.dart_client import DartAPIError, DartClient  # noqa: E402
 
 
 def main() -> int:
     api_key = get_dart_api_key()
     if not api_key:
-        print("[실패] .env에 DART_API_KEY가 비어 있습니다.")
+        print(
+            "[실패] DART_API_KEY를 찾을 수 없습니다. "
+            ".env 파일이나 환경변수, 또는 Colab 보안 비밀(Secrets)에 "
+            "DART_API_KEY를 설정했는지 확인하세요."
+        )
         return 1
 
     client = DartClient(api_key)

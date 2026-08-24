@@ -64,10 +64,25 @@ class KISSettings:
 
 
 def get_dart_api_key(dotenv_path: str | None = None) -> str:
-    """DART OpenAPI 키를 .env에서 읽는다."""
+    """DART OpenAPI 키를 읽는다.
+
+    로컬에서는 `.env`, Colab에서는 `.env` 없이 환경변수를 직접 설정했거나
+    Colab의 "보안 비밀"(Secrets) 기능으로 저장한 경우를 모두 지원한다.
+    """
 
     load_dotenv(dotenv_path=dotenv_path)
-    return os.environ.get("DART_API_KEY", "")
+    api_key = os.environ.get("DART_API_KEY", "")
+    if api_key:
+        return api_key
+
+    try:
+        from google.colab import userdata  # type: ignore
+
+        return userdata.get("DART_API_KEY") or ""
+    except Exception:
+        # Colab이 아니거나, Secrets에 DART_API_KEY가 없거나, 접근 권한이
+        # 없는 경우 전부 여기로 온다 -> 그냥 빈 문자열로 처리한다.
+        return ""
 
 
 @dataclass(frozen=True)
