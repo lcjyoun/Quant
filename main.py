@@ -12,10 +12,9 @@ import logging
 import sys
 from pathlib import Path
 
-from quant.config import Criteria, KISSettings
-from quant.kis.client import KISClient
-from quant.screener.pipeline import Screener
-from quant.universe.loader import load_universe
+from src.config import Criteria, KISSettings
+from src.kis_client import KISClient
+from src.screener import Screener, load_universe
 
 
 def parse_args() -> argparse.Namespace:
@@ -27,8 +26,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--criteria",
-        default="config/criteria.yaml",
-        help="기준값 YAML 경로 (기본: config/criteria.yaml)",
+        default="config/settings.yaml",
+        help="기준값 YAML 경로 (기본: config/settings.yaml)",
     )
     parser.add_argument(
         "--output",

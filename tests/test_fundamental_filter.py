@@ -1,6 +1,6 @@
-from quant.config import FundamentalCriteria
-from quant.models import FinancialSnapshot
-from quant.screener.fundamental import FundamentalFilter
+from src.config import FundamentalCriteria
+from src.models import FinancialSnapshot
+from src.screener import FundamentalFilter
 
 CRITERIA = FundamentalCriteria(
     per_industry_discount=0.20,

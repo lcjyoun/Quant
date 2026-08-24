@@ -1,11 +1,14 @@
-# Quant — 국내 주식 스크리너
+# Quant — 국내 주식 퀀트 트레이딩 시스템
 
-코스피/코스닥 종목을 **재무지표 1차 필터**로 걸러낸 뒤, **기술적 지표로
-매수 타이밍**을 확인하는 스크리닝 파이프라인. 시세/재무 데이터는 한국투자증권
-KIS Developers API를 사용하며, 모의투자 계좌로 개발 후 실전투자로 전환할 수
-있다.
+한국투자증권(KIS) Developers API를 이용해 코스피/코스닥 종목을
+**재무지표 1차 필터 → 기술적 지표 타이밍 → 백테스트 → 모의투자 검증 →
+(승인 시) 실전 자동매매** 순서로 진행하는 프로젝트.
 
-## 스크리닝 기준값 (2026-08-16 확정)
+개발은 아래 Phase 순서대로, 각 Phase가 실제로 동작하는 것을 확인한 뒤
+다음 단계로 넘어가는 방식으로 진행한다. **지금은 Phase 1(환경 세팅 +
+KIS API 연결 확인) 단계다.**
+
+## 전략 파라미터 (확정)
 
 ### 1차 필터 — 재무지표
 
@@ -16,42 +19,78 @@ KIS Developers API를 사용하며, 모의투자 계좌로 개발 후 실전투�
 | ROE | 10% 이상 |
 | 부채비율 | 100% 이하 |
 | 시가총액 | 2,000억원 이상 |
+| 영업이익 | 최근 4개 분기 연속 흑자 *(KIS API 필드 확인 필요 — 아직 미구현)* |
 
 ### 2차 필터 — 기술적 지표 (타이밍)
 
 | 지표 | 기준 |
 | --- | --- |
-| 골든크로스 | 단기(5일) 이평선이 장기(20일) 이평선을 상향 돌파 |
-| RSI | 40 ~ 60 구간 |
-| 거래량 | 직전 20일 평균 대비 150% 이상 |
+| 골든크로스 | 20일선이 60일선을 최근 5거래일 이내 상향 돌파 |
+| RSI(14) | 40 ~ 60 구간 |
+| 거래량 | 20일 평균 대비 150% 이상 |
 
-기준값은 `config/criteria.yaml`에서 조정할 수 있다.
+기준값은 `config/settings.yaml`에서 조정한다. 값을 바꿀 때는 근거(백테스트
+성과 지표) 없이 임의로 바꾸지 않는다.
 
 ## 프로젝트 구조
 
 ```
-quant/
-├── config.py              # .env / criteria.yaml 로딩
-├── models.py               # 공용 데이터 모델
-├── kis/
-│   ├── auth.py              # OAuth 토큰 발급/캐싱
-│   ├── endpoints.py          # API 경로 및 TR_ID 상수
-│   └── client.py             # 시세/재무/주문 REST 클라이언트
-├── indicators/
-│   └── technical.py          # 골든크로스 / RSI / 거래량 급증 계산
-├── screener/
-│   ├── fundamental.py        # 1차 필터
-│   ├── technical.py          # 2차 필터
-│   └── pipeline.py           # 전체 파이프라인 오케스트레이션
-└── universe/
-    └── loader.py              # 스크리닝 대상 종목 목록 로딩
+.
+├── .env                   # KIS API 키 (git 제외, 직접 작성)
+├── .env.example
+├── config/
+│   ├── settings.yaml        # 스크리닝 기준값
+│   └── universe.csv         # 스크리닝 대상 종목 (code,name,market,industry)
+├── src/
+│   ├── config.py             # .env / settings.yaml 로딩
+│   ├── models.py             # 공용 데이터 구조
+│   ├── kis_client.py         # KIS API 인증 + 시세/재무/잔고/주문 래퍼
+│   ├── screener.py           # 1차 필터(재무) + 전체 파이프라인
+│   ├── technical.py          # 2차 필터(기술적 타이밍)
+│   ├── backtest.py           # 백테스트 엔진 (Phase 4, 미구현)
+│   ├── paper_trading.py      # 모의투자 자동 실행 (Phase 5, 미구현)
+│   └── live_trading.py       # 실전매매 (Phase 6 승인 전까지 비활성)
+├── logs/                     # 매매 판단 근거 로그 (Phase 5부터 사용)
+├── tests/                    # 지표/필터 단위 테스트
+├── test_kis_connection.py    # [Phase 1] 인증 + 잔고조회 테스트 스크립트
+└── main.py                   # [Phase 2~3] 전체 스크리닝 CLI
+```
 
-config/
-├── criteria.yaml            # 기준값
-└── universe.csv              # 스크리닝 대상 종목 (code,name,market,industry)
+## Phase 진행 상황
 
-main.py                      # CLI 진입점
-tests/                        # 지표/필터 단위 테스트
+- [x] **Phase 1**: 환경 세팅 + KIS API 연결 확인 — `test_kis_connection.py`
+- [x] **Phase 2**: 스크리닝 모듈 (`src/screener.py`)
+- [x] **Phase 3**: 기술적 지표 모듈 (`src/technical.py`)
+- [ ] **Phase 4**: 백테스팅 엔진
+- [ ] **Phase 5**: 모의투자(paper trading) 검증
+- [ ] **Phase 6**: 실전 자동매매 — **사용자의 명시적 승인 전까지 보류**
+
+> Phase 2, 3의 코드는 이미 작성돼 있지만, "실제 KIS 계좌로 검증"은 아직
+> 안 됐다. Phase 1이 실제로 통과된 뒤(사용자가 `.env`를 채우고
+> `test_kis_connection.py`를 실행해 성공 메시지를 확인한 뒤) Phase 2를
+> 실계좌 데이터로 재검증한다.
+
+## Phase 1: KIS Developers 가입 + 모의투자 계좌 신청 (사용자가 직접 해야 하는 일)
+
+1. https://apiportal.koreainvestment.com 에서 회원가입 (한국투자증권
+   실계좌가 이미 있어야 한다 — 계좌가 없으면 먼저 증권 계좌부터 개설).
+2. 포털 로그인 후 "모의투자" 메뉴에서 모의투자 계좌를 신청한다. 실전
+   계좌와 별도로 가상 잔고(보통 5천만원 또는 1억원)가 주어지는 테스트
+   계좌다.
+3. 포털의 "OpenAPI 신청" 메뉴에서 앱키(App Key)/앱시크릿(App Secret)을
+   발급받는다. **모의투자용과 실전투자용 키는 서로 다르다.** 지금 단계는
+   모의투자용 키만 있으면 된다.
+4. 발급받은 값과 모의투자 계좌번호를 `.env`에 채운다.
+
+```bash
+cp .env.example .env
+```
+
+```
+KIS_APP_KEY=발급받은_앱키
+KIS_APP_SECRET=발급받은_앱시크릿
+KIS_ACCOUNT_NO=12345678-01   # 모의투자 계좌번호
+KIS_ENV=mock
 ```
 
 ## 설치
@@ -62,56 +101,55 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## KIS API 설정
-
-1. [KIS Developers 포털](https://apiportal.koreainvestment.com)에서 앱키/시크릿을
-   발급받는다. 실전투자 계좌와 모의투자 계좌 각각 별도로 발급해야 한다.
-2. `.env.example`을 복사해 `.env`를 만들고 값을 채운다.
+## Phase 1 완료 확인
 
 ```bash
-cp .env.example .env
+python test_kis_connection.py
 ```
 
+다음과 같이 출력되면 Phase 1 완료:
+
 ```
-KIS_APP_KEY=...
-KIS_APP_SECRET=...
-KIS_ACCOUNT_NO=12345678-01
-KIS_ENV=mock   # mock=모의투자, real=실전투자
+[정보] KIS_ENV = mock (base_url = https://openapivts.koreainvestment.com:29443)
+[성공] 인증 토큰 발급 성공
+[성공] 계좌 잔고 조회 성공
+  - 예수금: 50,000,000원
+  - 총평가금액: 50,000,000원
+  - 보유 종목 수: 0개
 ```
 
-`KIS_ENV`만 `real`로 바꾸면 base URL과 주문 TR_ID가 자동으로 실전투자용으로
-전환된다 (`quant/config.py`, `quant/kis/endpoints.py` 참고).
+실패하면 에러 메시지를 그대로 공유해달라 — 추측하지 않고 그 메시지를
+근거로 원인을 진단한다.
 
-> **참고:** KIS API는 코스피/코스닥 "전체 종목 목록"을 REST로 제공하지
-> 않으므로, 스크리닝 대상 종목은 `config/universe.csv`에 직접 관리한다.
-> KRX 상장종목 목록이나 KIS 종목마스터 파일을 내려받아 이 형식으로 변환해
-> 사용하면 된다.
+## (Phase 2~3) 전체 스크리닝 실행
 
-## 실행
+Phase 1이 통과된 뒤 사용할 명령. `config/universe.csv`에 스크리닝하고
+싶은 종목을 채운 뒤 실행한다.
 
 ```bash
 python main.py --universe config/universe.csv --output output/candidates.csv
 ```
 
 - **[매수 후보]**: 재무 + 기술 필터를 모두 통과한 종목
-- **[관심 종목]**: 재무 필터는 통과했지만 아직 기술적 타이밍(골든크로스/RSI/거래량)이
-  맞지 않은 종목 — 계속 관찰 대상
+- **[관심 종목]**: 재무 필터는 통과했지만 아직 기술적 타이밍이 맞지 않은 종목
 
 ## 테스트
 
-지표(골든크로스/RSI/거래량 급증)와 재무 필터 로직은 순수 함수라 API 키 없이
-바로 테스트할 수 있다.
+지표(골든크로스/RSI/거래량 급증)와 재무 필터 로직은 순수 함수라 API 키
+없이 바로 테스트할 수 있다.
 
 ```bash
 pytest tests/ -v
 ```
 
-## 참고 사항
+## 리스크/보안 가드레일
 
-- 재무비율(ROE, 부채비율) 및 업종 PER 조회에 사용하는 KIS API 응답 필드명은
-  공식 문서를 기준으로 매핑했다 (`quant/kis/client.py`). 실제 응답 구조가
-  다를 경우 해당 파일의 필드명만 수정하면 되도록 파싱 로직을 분리해두었으니,
-  실계좌/모의계좌로 첫 호출을 해본 뒤 응답 필드를 확인해 보정하는 것을 권장한다.
-- 주문(`KISClient.place_order`)은 지정가/시장가 현금 매수·매도를 지원하며,
-  모의투자와 실전투자의 TR_ID를 자동으로 구분한다. 실전 주문 실행 전
-  모의투자 환경에서 충분히 검증할 것.
+- API 키는 `.env`로만 관리하며 절대 코드에 하드코딩하지 않는다. `.env`는
+  `.gitignore`에 포함되어 있다.
+- `src/live_trading.py`는 `LIVE_TRADING_APPROVED = False`로 고정되어
+  있어, 사용자가 Phase 5 결과를 확인하고 명시적으로 승인하기 전까지는
+  호출 시 항상 예외를 발생시킨다.
+- 재무비율(ROE, 부채비율) 및 업종 PER 조회에 쓰는 KIS API 응답 필드명은
+  공식 문서를 기준으로 매핑했다 (`src/kis_client.py`). 실제 응답 구조가
+  다를 경우 이 파일의 필드명만 수정하면 되도록 파싱 로직을 분리해뒀다 —
+  Phase 1/2를 실계좌로 처음 돌려볼 때 응답을 확인해 보정할 것.

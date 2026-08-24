@@ -1,7 +1,8 @@
-"""환경 설정 및 스크리닝 기준값 로딩.
+"""환경 설정 및 전략 파라미터 로딩.
 
-- KIS API 인증 정보는 `.env` (환경변수)에서 읽는다.
-- 재무/기술 기준값은 `config/criteria.yaml`에서 읽는다.
+- KIS API 인증 정보(앱키/시크릿/계좌번호)는 절대 코드에 적지 않고 `.env`
+  (환경변수)에서만 읽는다.
+- 스크리닝 기준값 등 전략 파라미터는 `config/settings.yaml`에서 읽는다.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import yaml
 from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CRITERIA_PATH = PROJECT_ROOT / "config" / "criteria.yaml"
+DEFAULT_SETTINGS_PATH = PROJECT_ROOT / "config" / "settings.yaml"
 
 KIS_REAL_BASE_URL = "https://openapi.koreainvestment.com:9443"
 KIS_MOCK_BASE_URL = "https://openapivts.koreainvestment.com:29443"
@@ -93,7 +94,7 @@ class Criteria:
     technical: TechnicalCriteria
 
     @classmethod
-    def from_yaml(cls, path: str | Path = DEFAULT_CRITERIA_PATH) -> "Criteria":
+    def from_yaml(cls, path: str | Path = DEFAULT_SETTINGS_PATH) -> "Criteria":
         with open(path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f)
 

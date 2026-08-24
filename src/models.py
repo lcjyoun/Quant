@@ -1,4 +1,9 @@
-"""공용 데이터 모델."""
+"""여러 모듈에서 공유하는 데이터 구조.
+
+kis_client.py가 만들어서 screener.py/technical.py가 소비하는 값들이라
+공용 파일로 분리했다 (문서 초안에는 없던 파일이지만 중복 정의를 피하기
+위해 추가함).
+"""
 
 from __future__ import annotations
 

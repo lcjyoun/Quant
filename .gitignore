@@ -11,3 +11,5 @@ token_cache.json
 output/
 *.csv
 !config/universe.csv
+logs/*.log
+!logs/.gitkeep

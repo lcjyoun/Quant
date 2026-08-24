@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from quant.indicators.technical import (
+from src.technical import (
     is_golden_cross,
     is_volume_surge,
     latest_rsi,

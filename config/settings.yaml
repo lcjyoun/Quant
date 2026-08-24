@@ -14,10 +14,10 @@ fundamental:
   market_cap_min: 200_000_000_000
 
 technical:
-  # 골든크로스 (단기 이평선이 장기 이평선을 상향 돌파)
-  short_ma_window: 5
-  long_ma_window: 20
-  golden_cross_lookback_days: 3
+  # 골든크로스: 20일선이 60일선을 최근 5거래일 이내 상향 돌파
+  short_ma_window: 20
+  long_ma_window: 60
+  golden_cross_lookback_days: 5
   # RSI 40~60 구간 (과매수/과매도 아닌 중립 구간에서의 진입)
   rsi_period: 14
   rsi_min: 40.0
